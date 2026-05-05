@@ -4,8 +4,47 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Formulaire Audit Starlink — IPKONEKT / Bouygues Telecom</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+<!-- Librairies : on essaie d'abord en local (à côté de index.html), avec fallback CDN -->
+<script>
+  // Helper : charger un script avec fallback en cas d'échec
+  function loadWithFallback(localSrc, fallbackSrc, globalCheck) {
+    return new Promise((resolve) => {
+      const tryLoad = (src, isFallback) => {
+        const s = document.createElement("script");
+        s.src = src;
+        s.onload = () => {
+          if (typeof window[globalCheck] !== "undefined") {
+            console.log("[OK] " + globalCheck + " chargé depuis " + src);
+            resolve(true);
+          } else if (!isFallback) {
+            console.warn("[KO] " + src + " chargé mais " + globalCheck + " manquant — fallback CDN");
+            tryLoad(fallbackSrc, true);
+          } else {
+            console.error("[KO] Impossible de charger " + globalCheck);
+            resolve(false);
+          }
+        };
+        s.onerror = () => {
+          if (!isFallback) {
+            console.warn("[KO] " + src + " injoignable — fallback CDN");
+            tryLoad(fallbackSrc, true);
+          } else {
+            console.error("[KO] CDN également injoignable pour " + globalCheck);
+            resolve(false);
+          }
+        };
+        document.head.appendChild(s);
+      };
+      tryLoad(localSrc, false);
+    });
+  }
+
+  // Démarrer le chargement immédiatement
+  window.__libsLoaded = Promise.all([
+    loadWithFallback("docx.umd.js",         "https://unpkg.com/docx@8.5.0/build/index.umd.js",   "docx"),
+    loadWithFallback("FileSaver.min.js",    "https://unpkg.com/file-saver@2.0.5/dist/FileSaver.min.js", "saveAs")
+  ]);
+</script>
 <style>
   * { box-sizing: border-box; }
   body {
