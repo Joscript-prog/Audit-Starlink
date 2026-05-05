@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Formulaire Audit Starlink — IPKONEKT / Bouygues Telecom</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    margin: 0;
+    background: #f0f4f8;
+    color: #222;
+  }
+  header {
+    background: linear-gradient(135deg, #1f4e79 0%, #2e75b6 100%);
+    color: white;
+    padding: 20px 30px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+  header h1 { margin: 0; font-size: 1.5rem; }
+  header p { margin: 5px 0 0 0; opacity: 0.9; font-size: 0.9rem; }
+  .container {
+    max-width: 1100px;
+    margin: 20px auto;
+    padding: 0 20px 60px 20px;
+  }
+  .section {
+    background: white;
+    border-radius: 8px;
+    padding: 25px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  }
+  .section h2 {
+    color: #1f4e79;
+    border-bottom: 2px solid #2e75b6;
+    padding-bottom: 8px;
+    margin-top: 0;
+    font-size: 1.2rem;
+  }
+  .section h3 {
+    color: #2e75b6;
+    font-size: 1rem;
+    font-style: italic;
+    margin-top: 20px;
+  }
+  .field-row {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+    align-items: center;
+  }
+  .field-row.full {
+    grid-template-columns: 1fr;
+  }
+  .field-row label {
+    font-weight: 600;
+    color: #333;
+    font-size: 0.9rem;
+  }
+  input[type="text"], input[type="date"], input[type="time"], input[type="number"], input[type="email"], textarea, select {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 0.9rem;
+  }
+  input:focus, textarea:focus, select:focus {
+    outline: none;
+    border-color: #2e75b6;
+    box-shadow: 0 0 0 2px rgba(46,117,182,0.2);
+  }
+  textarea { min-height: 70px; resize: vertical; }
+  .checkbox-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .checkbox-group label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: normal;
+    cursor: pointer;
+    padding: 6px 10px;
+    background: #f8fafc;
+    border: 1px solid #e0e6ed;
+    border-radius: 4px;
+    font-size: 0.88rem;
+  }
+  .checkbox-group label:hover { background: #eef4fa; }
+  .checkbox-group input[type="checkbox"], .checkbox-group input[type="radio"] {
+    margin: 0;
+    cursor: pointer;
+  }
+  .photo-upload {
+    border: 2px dashed #c0d0e0;
+    border-radius: 6px;
+    padding: 12px;
+    background: #fafcfe;
+    margin-bottom: 10px;
+  }
+  .photo-upload-label {
+    font-weight: 600;
+    color: #1f4e79;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .photo-preview {
+    margin-top: 8px;
+    max-width: 200px;
+    max-height: 150px;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+    display: none;
+  }
+  .photo-preview.shown { display: block; }
+  .photo-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+  }
+  @media (max-width: 700px) {
+    .photo-grid { grid-template-columns: 1fr; }
+    .field-row { grid-template-columns: 1fr; }
+  }
+  .actions {
+    position: sticky;
+    bottom: 0;
+    background: white;
+    padding: 15px 20px;
+    border-top: 2px solid #2e75b6;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    z-index: 10;
+  }
+  button {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-primary {
+    background: #2e75b6;
+    color: white;
+  }
+  .btn-primary:hover { background: #1f4e79; }
+  .btn-secondary {
+    background: #e6e6e6;
+    color: #333;
+  }
+  .btn-secondary:hover { background: #ccc; }
+  .info-box {
+    background: #fff8e6;
+    border-left: 4px solid #f0ad4e;
+    padding: 10px 15px;
+    margin: 12px 0;
+    border-radius: 4px;
+    font-size: 0.88rem;
+  }
+  .clear-photo {
+    background: #d9534f;
+    color: white;
+    border: none;
+    padding: 4px 10px;
+    border-radius: 3px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    margin-left: 10px;
+  }
+  .clear-photo:hover { background: #c9302c; }
+  .photo-item { display: flex; flex-direction: column; }
+  .status {
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 4px;
+    display: none;
+    font-weight: 600;
+  }
+  .status.success { background: #dff0d8; color: #3c763d; display: block; }
+  .status.error { background: #f2dede; color: #a94442; display: block; }
+  .status.loading { background: #d9edf7; color: #31708f; display: block; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📋 Formulaire d'Audit — Installation Starlink</h1>
+  <p>Bouygues Telecom | IPKONEKT — Remplissez le formulaire puis générez le rapport Word</p>
+</header>
+
+<div class="container">
+
+  <!-- ========== EN-TÊTE ========== -->
+  <div class="section">
+    <h2>En-tête du rapport</h2>
+    <div class="field-row">
+      <label>Référence commande</label>
+      <input type="text" id="ref_commande" placeholder="ex: CMD-2026-0042">
+    </div>
+    <div class="field-row">
+      <label>Auditeur / Intervenant</label>
+      <input type="text" id="auditeur" placeholder="Nom de l'intervenant" value="">
+    </div>
+    <div class="field-row">
+      <label>Date d'audit</label>
+      <input type="date" id="date_audit">
+    </div>
+  </div>
+
+  <!-- ========== 1. INFOS CLIENT ========== -->
+  <div class="section">
+    <h2>1. Informations administratives du client</h2>
+    <div class="field-row">
+      <label>Raison sociale du site audité</label>
+      <input type="text" id="raison_sociale">
+    </div>
+    <div class="field-row">
+      <label>Adresse</label>
+      <input type="text" id="adresse">
+    </div>
+    <div class="field-row">
+      <label>Code postal</label>
+      <input type="text" id="code_postal">
+    </div>
+    <div class="field-row">
+      <label>Ville</label>
+      <input type="text" id="ville">
+    </div>
+    <div class="field-row">
+      <label>Horaire d'ouverture du site</label>
+      <input type="text" id="horaire" placeholder="ex: 08h00 - 18h00, Lun-Ven">
+    </div>
+    <div class="field-row">
+      <label>Procédure d'accès</label>
+      <textarea id="procedure_acces"></textarea>
+    </div>
+    <div class="field-row">
+      <label>Téléphone site</label>
+      <input type="text" id="tel_site">
+    </div>
+    <div class="field-row">
+      <label>Nom du contact client sur site</label>
+      <input type="text" id="contact_nom">
+    </div>
+    <div class="field-row">
+      <label>Fonction</label>
+      <input type="text" id="contact_fonction">
+    </div>
+    <div class="field-row">
+      <label>Téléphone contact</label>
+      <input type="text" id="contact_tel">
+    </div>
+    <div class="field-row">
+      <label>Mail contact</label>
+      <input type="email" id="contact_mail">
+    </div>
+
+    <div class="photo-upload">
+      <div class="photo-upload-label">📷 Vue Façade Extérieur</div>
+      <input type="file" accept="image/*" data-photo-key="facade">
+      <img class="photo-preview" id="preview_facade">
+    </div>
+  </div>
+
+  <!-- ========== 2. EMPLACEMENT ========== -->
+  <div class="section">
+    <h2>2. Choix de l'emplacement de l'antenne</h2>
+
+    <h3>2.1 - Description de l'emplacement retenu</h3>
+    <div class="field-row">
+      <label>Type d'emplacement</label>
+      <div class="checkbox-group">
+        <label><input type="checkbox" name="type_empl" value="Toiture plate"> Toiture plate</label>
+        <label><input type="checkbox" name="type_empl" value="Façade"> Façade</label>
+        <label><input type="checkbox" name="type_empl" value="Balcon / Garde-corps"> Balcon / Garde-corps</label>
+        <label><input type="checkbox" name="type_empl" value="Acrotère"> Acrotère</label>
+      </div>
+    </div>
+    <div class="field-row">
+      <label>Description détaillée</label>
+      <textarea id="empl_description"></textarea>
+    </div>
+    <div class="field-row">
+      <label>Hauteur depuis le sol</label>
+      <input type="text" id="empl_hauteur" placeholder="ex: 6 m">
+    </div>
+    <div class="field-row">
+      <label>Accessibilité</label>
+      <div class="checkbox-group">
+        <label><input type="checkbox" name="access" value="Accessible sans moyen"> Accessible sans moyen</label>
+        <label><input type="checkbox" name="access" value="Echelle Requise"> Échelle Requise</label>
+        <label><input type="checkbox" name="access" value="Nacelle Requise"> Nacelle Requise</label>
+      </div>
+    </div>
+    <div class="field-row">
+      <label>Dégagement vers le ciel</label>
+      <div class="checkbox-group">
+        <label><input type="checkbox" name="degagement" value="Suffisant (≥ 100°)"> Suffisant (≥ 100°)</label>
+        <label><input type="checkbox" name="degagement" value="Insuffisant - voir obstruction"> Insuffisant - voir obstruction</label>
+      </div>
+    </div>
+
+    <h3>2.2 - Photos de l'emplacement</h3>
+    <div class="photo-grid">
+      <div class="photo-upload">
+        <div class="photo-upload-label">📷 Vue générale de l'emplacement</div>
+        <input type="file" accept="image/*" data-photo-key="empl_general">
+        <img class="photo-preview" id="preview_empl_general">
+      </div>
+      <div class="photo-upload">
+        <div class="photo-upload-label">📷 Vue détaillée du point de fixation</div>
+        <input type="file" accept="image/*" data-photo-key="empl_detail">
+        <img class="photo-preview" id="preview_empl_detail">
+      </div>
+    </div>
+
+    <h3>2.3 - Test de positionnement - Application Starlink</h3>
+    <div class="field-row">
+      <label>Résultat du test d'obstruction</label>
+      <div class="checkbox-group">
+        <label><input type="checkbox" name="obstruction" value="Aucune obstruction"> Aucune obstruction</label>
+        <label><input type="checkbox" name="obstruction" value="Obstruction mineure"> Obstruction mineure</label>
+        <label><input type="checkbox" name="obstruction" value="Obstruction bloquante"> Obstruction bloquante</label>
+      </div>
+    </div>
+    <div class="field-row">
+      <label>Commentaire</label>
+      <textarea id="obstr_commentaire"></textarea>
+    </div>
+    <div class="photo-grid">
+      <div class="photo-upload">
+        <div class="photo-upload-label">📱 Capture écran test obstruction (app Starlink)</div>
+        <input type="file" accept="image/*" data-photo-key="capture_obstruction">
+        <img class="photo-preview" id="preview_capture_obstruction">
+      </div>
+      <div class="photo-upload">
+        <div class="photo-upload-label">📱 Carte de couverture / signal obtenu</div>
+        <input type="file" accept="image/*" data-photo-key="carte_couverture">
+        <img class="photo-preview" id="preview_carte_couverture">
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== 3. POSE ========== -->
+  <div class="section">
+    <h2>3. Pose de l'antenne — Cheminement câble & point de pénétration</h2>
+
+    <h3>3.1 - Informations de pose</h3>
+    <div class="field-row">
+      <label>Type de support installé</label>
+      <div class="checkbox-group">
+        <label><input type="checkbox" name="support" value="Trépied"> Trépied</label>
+        <label><input type="checkbox" name="support" value="Mât auto stable 1m"> Mât auto stable 1m</label>
+        <label><input type="checkbox" name="support" value="Mât en drapeau"> Mât en drapeau</label>
+        <label><input type="checkbox" name="support" value="Déport coudé"> Déport coudé</label>
+        <label><input type="checkbox" name="support" value="Mât droit 1m (garde-corps)"> Mât droit 1m (garde-corps)</label>
+      </div>
+    </div>
+    <div class="field-row">
+      <label>Longueur de câble à prévoir (m)</label>
+      <input type="text" id="cable_longueur" placeholder="câble fourni ≤25m / prolongateur 25-50m">
+    </div>
+    <div class="field-row">
+      <label>Type de cheminement câble</label>
+      <div class="checkbox-group">
+        <label><input type="checkbox" name="cheminement" value="Goulotte extérieure"> Goulotte extérieure</label>
+        <label><input type="checkbox" name="cheminement" value="Faux plafond amovible (Tonga)"> Faux plafond amovible (Tonga)</label>
+        <label><input type="checkbox" name="cheminement" value="Sous conduit encastré"> Sous conduit encastré</label>
+        <label><input type="checkbox" name="cheminement" value="Mixte"> Mixte</label>
+      </div>
+    </div>
+    <div class="field-row">
+      <label>Point de pénétration</label>
+      <div class="checkbox-group">
+        <label><input type="checkbox" name="penetration" value="Passage de façade"> Passage de façade</label>
+        <label><input type="checkbox" name="penetration" value="Menuiserie / joint"> Menuiserie / joint</label>
+        <label><input type="checkbox" name="penetration" value="Fourreaux existants"> Fourreaux existants</label>
+        <label><input type="checkbox" name="penetration" value="Percement réalisé"> Percement réalisé</label>
+      </div>
+    </div>
+    <div class="field-row">
+      <label>Étanchéité du passage</label>
+      <div class="checkbox-group">
+        <label><input type="checkbox" name="etancheite" value="Mastic appliqué"> Mastic appliqué</label>
+        <label><input type="checkbox" name="etancheite" value="Passe-câble étanche"> Passe-câble étanche</label>
+        <label><input type="checkbox" name="etancheite" value="Non traité (à compléter)"> Non traité (à compléter)</label>
+      </div>
+    </div>
+    <div class="field-row">
+      <label>Hauteur maximale d'intervention (m)</label>
+      <input type="text" id="hauteur_max" placeholder="max 2,5m sans sécurité spécifique">
+    </div>
+
+    <h3>3.2 - Photos de pose et cheminement</h3>
+    <div class="info-box">
+      💡 Les emplacements photo non remplis seront automatiquement supprimés du document final.
+    </div>
+    <div class="photo-grid">
+      <div class="photo-upload">
+        <div class="photo-upload-label">📷 Antenne posée sur support</div>
+        <input type="file" accept="image/*" data-photo-key="pose_antenne">
+        <img class="photo-preview" id="preview_pose_antenne">
+      </div>
+      <div class="photo-upload">
+        <div class="photo-upload-label">📷 Cheminement câble 1</div>
+        <input type="file" accept="image/*" data-photo-key="cheminement_1">
+        <img class="photo-preview" id="preview_cheminement_1">
+      </div>
+      <div class="photo-upload">
+        <div class="photo-upload-label">📷 Cheminement câble 2</div>
+        <input type="file" accept="image/*" data-photo-key="cheminement_2">
+        <img class="photo-preview" id="preview_cheminement_2">
+      </div>
+      <div class="photo-upload">
+        <div class="photo-upload-label">📷 Cheminement câble 3</div>
+        <input type="file" accept="image/*" data-photo-key="cheminement_3">
+        <img class="photo-preview" id="preview_cheminement_3">
+      </div>
+      <div class="photo-upload">
+        <div class="photo-upload-label">📷 Point de pénétration façade</div>
+        <input type="file" accept="image/*" data-photo-key="penetration_facade">
+        <img class="photo-preview" id="preview_penetration_facade">
+      </div>
+      <div class="photo-upload">
+        <div class="photo-upload-label">📷 Emplacement du routeur Starlink</div>
+        <input type="file" accept="image/*" data-photo-key="routeur">
+        <img class="photo-preview" id="preview_routeur">
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== 5. EPI ========== -->
+  <div class="section">
+    <h2>5. EPI requis - Équipements de Protection Individuelle</h2>
+    <div class="info-box">
+      Cochez Oui ou Non pour chaque EPI selon ce qui sera présent sur intervention.
+    </div>
+    <div id="epi_list"></div>
+    <div class="field-row full" style="margin-top:15px;">
+      <label>Remarques EPI / Sécurité</label>
+      <textarea id="epi_remarques"></textarea>
+    </div>
+  </div>
+
+  <!-- ========== 4. SYNTHESE ========== -->
+  <div class="section">
+    <h2>4. Synthèse de l'intervention</h2>
+    <div class="field-row">
+      <label>Heure de début d'intervention</label>
+      <input type="time" id="heure_debut">
+    </div>
+    <div class="field-row">
+      <label>Heure de fin d'intervention</label>
+      <input type="time" id="heure_fin">
+    </div>
+    <div class="field-row">
+      <label>Durée totale à prévoir</label>
+      <input type="text" id="duree_totale" placeholder="ex: 4h30">
+    </div>
+    <div class="field-row">
+      <label>Nombre de techniciens</label>
+      <input type="number" id="nb_techniciens" min="1" max="10">
+    </div>
+    <div class="field-row">
+      <label>Nacelle à prévoir</label>
+      <div class="checkbox-group">
+        <label><input type="radio" name="nacelle_prevoir" value="Oui"> Oui</label>
+        <label><input type="radio" name="nacelle_prevoir" value="Non"> Non</label>
+      </div>
+    </div>
+    <div class="field-row">
+      <label>Câblage supplémentaire</label>
+      <div class="checkbox-group">
+        <label><input type="radio" name="cablage_supp" value="Oui"> Oui</label>
+        <label><input type="radio" name="cablage_supp" value="Non"> Non</label>
+      </div>
+    </div>
+    <div class="field-row full">
+      <label>Observations / Réserves / Points à lever</label>
+      <textarea id="observations" style="min-height: 120px;"></textarea>
+    </div>
+    <div class="field-row">
+      <label>Nom du signataire</label>
+      <input type="text" id="signataire_nom">
+    </div>
+    <div class="field-row">
+      <label>Date de signature</label>
+      <input type="date" id="signataire_date">
+    </div>
+  </div>
+
+  <div id="status" class="status"></div>
+
+</div>
+
+<div class="actions">
+  <button class="btn-secondary" onclick="resetForm()">🔄 Réinitialiser</button>
+  <button class="btn-primary" onclick="generateDocument()">📄 Générer le rapport Word</button>
+</div>
+
+<script src="logos.js"></script>
+<script src="app.js"></script>
+
+</body>
+</html>
