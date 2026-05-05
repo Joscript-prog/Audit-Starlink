@@ -48,6 +48,18 @@ document.addEventListener("DOMContentLoaded", () => {
   const today = new Date().toISOString().slice(0, 10);
   document.getElementById("date_audit").value = today;
   document.getElementById("signataire_date").value = today;
+
+  // Vérifier que les librairies docx et FileSaver sont bien chargées
+  if (window.__libsLoaded) {
+    window.__libsLoaded.then(results => {
+      const allOK = results.every(r => r === true);
+      if (!allOK) {
+        showStatus("⚠ Impossible de charger les librairies docx/FileSaver. Vérifiez la console (F12) pour les détails. Si vous êtes hors ligne, assurez-vous que les fichiers docx.umd.js et FileSaver.min.js sont bien dans le même dossier que index.html.", "error");
+      } else {
+        console.log("✓ Toutes les librairies sont chargées et prêtes");
+      }
+    });
+  }
 });
 
 // ============================================================
@@ -133,12 +145,30 @@ async function generateDocument() {
   showStatus("Génération du document en cours...", "loading");
 
   try {
+    // Attendre que les librairies soient chargées (max 5 secondes)
+    if (typeof window !== "undefined" && window.__libsLoaded) {
+      const results = await Promise.race([
+        window.__libsLoaded,
+        new Promise(r => setTimeout(() => r([false]), 5000))
+      ]);
+      if (!results.every(r => r === true)) {
+        throw new Error("Les librairies docx/FileSaver ne sont pas chargées. Vérifiez que les fichiers docx.umd.js et FileSaver.min.js se trouvent dans le même dossier que index.html, ou que vous avez une connexion internet (pour le fallback CDN).");
+      }
+    }
+
+    // Vérifier que la librairie docx est chargée
+    if (typeof docx === "undefined" && typeof window !== "undefined" && typeof window.docx === "undefined") {
+      throw new Error("La librairie docx n'a pas pu être chargée. Vérifiez la console (F12) pour plus de détails.");
+    }
+    // Récupérer la référence selon l'environnement (window ou global)
+    const docxLib = (typeof docx !== "undefined") ? docx : window.docx;
+
     // Détruction des références docx
     const {
       Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
       ImageRun, Header, Footer, AlignmentType, BorderStyle, WidthType,
       ShadingType, VerticalAlign, HeadingLevel, PageOrientation
-    } = docx;
+    } = docxLib;
 
     // ========== Constantes de mise en forme ==========
     const COLOR_PRIMARY = "1F4E79";       // Bleu foncé titres
