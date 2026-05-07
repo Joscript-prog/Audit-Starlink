@@ -444,6 +444,102 @@
     border: 1px solid rgba(0,0,0,0.2);
   }
   .swatch:hover { transform: scale(1.1); }
+
+  /* ====================================================== */
+  /*  v3 — Flèches + Flip H/V + Panneau de sélection         */
+  /* ====================================================== */
+  .arrow-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 6px;
+  }
+  .arrow-controls .row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .arrow-controls label {
+    font-size: 0.78rem;
+    color: #555;
+    flex: 1;
+  }
+  .arrow-controls input[type="number"],
+  .arrow-controls input[type="color"] {
+    width: 100%;
+    padding: 4px;
+    font-size: 0.82rem;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+  }
+  .arrow-controls input[type="color"] { padding: 1px; height: 28px; }
+  .swatch-row.arrow-swatches { margin-top: 4px; }
+
+  /* Panneau qui apparaît quand on a un élément sélectionné */
+  .selection-panel {
+    display: none;
+    background: #fff8e6;
+    border: 1px solid #f0ad4e;
+    border-radius: 4px;
+    padding: 8px;
+    margin-bottom: 12px;
+  }
+  .selection-panel h3 {
+    margin: 0 0 6px 0 !important;
+    color: #b8860b !important;
+  }
+  .flip-buttons {
+    display: flex;
+    gap: 6px;
+  }
+  .flip-btn {
+    flex: 1;
+    padding: 8px 6px;
+    background: #fff;
+    border: 1px solid #d0dae5;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.82rem;
+    color: #1f4e79;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+  }
+  .flip-btn:hover { background: #eef4fa; border-color: #2e75b6; }
+  .flip-btn.active {
+    background: #2e75b6;
+    color: #fff;
+    border-color: #1f4e79;
+  }
+  .flip-btn svg { width: 18px; height: 18px; }
+
+  /* Poignée d'extrémité de flèche : carré bleu */
+  .handle.arrow-end {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    cursor: move;
+  }
+  .handle.arrow-delete {
+    cursor: pointer;
+  }
+  /* Quand une flèche est sélectionnée, on rend le wrapper "transparent au clic"
+     mais la pointe / la ligne capturent les events */
+  .editor-element.arrow-element {
+    pointer-events: none;
+  }
+  .editor-element.arrow-element svg { pointer-events: none; }
+  .editor-element.arrow-element .handle { pointer-events: auto; }
+
+  /* Petit effet sur le panel de sélection pour le rendre visible */
+  .selection-panel .small-help {
+    font-size: 0.72rem;
+    color: #888;
+    margin-top: 4px;
+    font-style: italic;
+  }
 </style>
 </head>
 <body>
@@ -815,8 +911,60 @@
     </div>
     <div class="editor-body">
       <div class="editor-toolbar">
+        <!-- Panneau de l'élément sélectionné (Flip H/V pour images, params pour flèches) -->
+        <div class="selection-panel tool-group" id="selectionPanel">
+          <h3>✎ Élément sélectionné</h3>
+          <!-- Pour les images -->
+          <div id="selPanelImage">
+            <div class="flip-buttons">
+              <button class="flip-btn" id="flipHBtn" title="Retourner horizontalement (miroir gauche/droite)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 12h18"/>
+                  <path d="M7 8l-4 4 4 4"/>
+                  <path d="M17 8l4 4-4 4"/>
+                </svg>
+                Miroir H
+              </button>
+              <button class="flip-btn" id="flipVBtn" title="Retourner verticalement (miroir haut/bas)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 3v18"/>
+                  <path d="M8 7l4-4 4 4"/>
+                  <path d="M8 17l4 4 4-4"/>
+                </svg>
+                Miroir V
+              </button>
+            </div>
+            <div class="small-help">Cliquez à nouveau pour annuler le retournement.</div>
+          </div>
+          <!-- Pour les flèches -->
+          <div id="selPanelArrow">
+            <div class="row" style="display:flex; gap:6px; align-items:center;">
+              <label style="flex:1; font-size:0.78rem; color:#555;">Couleur
+                <input type="color" id="selArrowColor" value="#FF0000" style="width:100%; padding:1px; height:28px; border:1px solid #ccc; border-radius:3px;">
+              </label>
+            </div>
+            <div class="swatch-row sel-arrow-swatches" style="display:grid; grid-template-columns:repeat(6,1fr); gap:3px; margin-top:4px;">
+              <div class="swatch sel-arrow-swatch" style="background:#FF0000; height:22px; border-radius:3px; cursor:pointer; border:1px solid rgba(0,0,0,0.2);" data-color="#FF0000" title="Rouge"></div>
+              <div class="swatch sel-arrow-swatch" style="background:#FFFFFF; height:22px; border-radius:3px; cursor:pointer; border:1px solid rgba(0,0,0,0.2);" data-color="#FFFFFF" title="Blanc"></div>
+              <div class="swatch sel-arrow-swatch" style="background:#FFFF00; height:22px; border-radius:3px; cursor:pointer; border:1px solid rgba(0,0,0,0.2);" data-color="#FFFF00" title="Jaune"></div>
+              <div class="swatch sel-arrow-swatch" style="background:#00B050; height:22px; border-radius:3px; cursor:pointer; border:1px solid rgba(0,0,0,0.2);" data-color="#00B050" title="Vert"></div>
+              <div class="swatch sel-arrow-swatch" style="background:#0070C0; height:22px; border-radius:3px; cursor:pointer; border:1px solid rgba(0,0,0,0.2);" data-color="#0070C0" title="Bleu"></div>
+              <div class="swatch sel-arrow-swatch" style="background:#000000; height:22px; border-radius:3px; cursor:pointer; border:1px solid rgba(0,0,0,0.2);" data-color="#000000" title="Noir"></div>
+            </div>
+            <div class="row" style="display:flex; gap:6px; align-items:center; margin-top:6px;">
+              <label style="flex:1; font-size:0.78rem; color:#555;">Épaisseur
+                <input type="number" id="selArrowThickness" min="2" max="40" value="6" style="width:100%; padding:4px; font-size:0.82rem; border:1px solid #ccc; border-radius:3px;">
+              </label>
+              <label style="flex:1; font-size:0.78rem; color:#555;">Pointe
+                <input type="number" id="selArrowHeadSize" min="8" max="80" value="18" style="width:100%; padding:4px; font-size:0.82rem; border:1px solid #ccc; border-radius:3px;">
+              </label>
+            </div>
+            <div class="small-help">Tirez les poignées d'extrémité (cercles) pour allonger / orienter la flèche.</div>
+          </div>
+        </div>
+
         <div class="tool-group">
-          <h3>Éléments</h3>
+          <h3>Éléments — Antennes & Mâts</h3>
           <button class="tool-btn" data-add-asset="ANTENNE">
             <img id="thumb_ANTENNE" alt=""> Antenne Starlink
           </button>
@@ -826,7 +974,51 @@
           <button class="tool-btn" data-add-asset="MAT_COUDE">
             <img id="thumb_MAT_COUDE" alt=""> Mât coudé fixe
           </button>
+          <button class="tool-btn" data-add-asset="MAT_COUDE_GRIS">
+            <img id="thumb_MAT_COUDE_GRIS" alt=""> Mât coudé gris (orient.)
+          </button>
+          <button class="tool-btn" data-add-asset="MAT_COUDE_BLANC">
+            <img id="thumb_MAT_COUDE_BLANC" alt=""> Mât coudé blanc (long)
+          </button>
+          <button class="tool-btn" data-add-asset="TREPIED">
+            <img id="thumb_TREPIED" alt=""> Trépied télescopique
+          </button>
+          <button class="tool-btn" data-add-asset="SUPPORT_CHASSIS">
+            <img id="thumb_SUPPORT_CHASSIS" alt=""> Support châssis lesté
+          </button>
+          <button class="tool-btn" data-add-asset="BORNE">
+            <img id="thumb_BORNE" alt=""> Borne / lampadaire
+          </button>
         </div>
+
+        <div class="tool-group">
+          <h3>Flèches</h3>
+          <div class="arrow-controls">
+            <div class="row">
+              <label>Couleur
+                <input type="color" id="arrowColor" value="#FF0000">
+              </label>
+            </div>
+            <div class="swatch-row arrow-swatches" style="display:grid; grid-template-columns:repeat(6,1fr); gap:3px;">
+              <div class="swatch arrow-swatch" style="background:#FF0000" data-color="#FF0000" title="Rouge"></div>
+              <div class="swatch arrow-swatch" style="background:#FFFFFF" data-color="#FFFFFF" title="Blanc"></div>
+              <div class="swatch arrow-swatch" style="background:#FFFF00" data-color="#FFFF00" title="Jaune"></div>
+              <div class="swatch arrow-swatch" style="background:#00B050" data-color="#00B050" title="Vert"></div>
+              <div class="swatch arrow-swatch" style="background:#0070C0" data-color="#0070C0" title="Bleu"></div>
+              <div class="swatch arrow-swatch" style="background:#000000" data-color="#000000" title="Noir"></div>
+            </div>
+            <div class="row">
+              <label>Épaisseur
+                <input type="number" id="arrowThickness" min="2" max="40" value="6">
+              </label>
+              <label>Pointe
+                <input type="number" id="arrowHeadSize" min="8" max="80" value="18">
+              </label>
+            </div>
+            <button class="tool-btn" id="btnAddArrow" style="background:#2e75b6; color:white; border-color:#1f4e79; justify-content:center; margin-top:4px;">➕ Ajouter une flèche</button>
+          </div>
+        </div>
+
         <div class="tool-group">
           <h3>Texte / Commentaire</h3>
           <div class="text-controls">
@@ -881,6 +1073,8 @@
             • Coin bleu (bas-droite) : redimensionner.<br>
             • Pastille orange (en haut) : pivoter.<br>
             • Pastille rouge : supprimer.<br>
+            • <b>Sélectionnez une image</b> → boutons <b>Miroir H/V</b> en haut.<br>
+            • <b>Flèche</b> : tirez l'extrémité bleue (pointe) pour l'orienter, le cercle blanc pour bouger la base.<br>
             • Touche <b>Suppr</b> sur le clavier : supprime aussi.
           </p>
         </div>
