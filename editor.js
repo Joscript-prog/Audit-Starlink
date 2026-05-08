@@ -42,15 +42,28 @@ const Editor = (function () {
     const photo = photoStore[photoKey];
     if (!photo) return;
 
-    // Si la photo a déjà été annotée, on repart du dataURL "annoté" en bg
+    // Pour le fond on utilise toujours la photo ORIGINALE (sans annotations)
+    // afin de pouvoir reconstruire les annotations dessus de manière éditable.
+    // Si la photo n'a jamais été annotée, originalDataUrl est absent → on prend dataUrl.
     const srcUrl = photo.originalDataUrl || photo.dataUrl;
 
-    bgPhotoEl.onload = () => {
+    const onBgLoaded = () => {
       stageW = bgPhotoEl.naturalWidth;
       stageH = bgPhotoEl.naturalHeight;
       fitStage();
+      // Restaurer les annotations si elles existent
+      if (photo.annotations && photo.annotations.length) {
+        restoreElements(photo.annotations);
+      }
     };
-    bgPhotoEl.src = srcUrl;
+
+    bgPhotoEl.onload = onBgLoaded;
+    // Si la src est inchangée, le onload n'est pas déclenché : on force
+    if (bgPhotoEl.src === srcUrl && bgPhotoEl.complete && bgPhotoEl.naturalWidth) {
+      onBgLoaded();
+    } else {
+      bgPhotoEl.src = srcUrl;
+    }
 
     document.getElementById("editorOverlay").classList.add("shown");
   }
@@ -701,6 +714,82 @@ const Editor = (function () {
   }
 
   // ============================================================
+  //  SÉRIALISATION / RESTAURATION DES ANNOTATIONS
+  // ============================================================
+
+  // Sérialise les éléments en objets simples (sans références DOM)
+  function serializeElements() {
+    return elements.map(item => {
+      // On clone les data pour éviter toute référence DOM résiduelle
+      return JSON.parse(JSON.stringify(item.data));
+    });
+  }
+
+  // Reconstruit les éléments à partir de données sérialisées
+  function restoreElements(serialized) {
+    // Nettoyer l'existant
+    elements.forEach(e => e.el.remove());
+    elements = [];
+    selectedEl = null;
+    hideSelectionPanel();
+
+    serialized.forEach(rawData => {
+      // Cloner pour éviter de muter la donnée stockée
+      const data = JSON.parse(JSON.stringify(rawData));
+      let wrapper;
+
+      if (data.type === "image") {
+        wrapper = document.createElement("div");
+        wrapper.className = "editor-element";
+        const img = document.createElement("img");
+        img.src = data.src;
+        img.draggable = false;
+        wrapper.appendChild(img);
+        wrapper._data = data;
+        wrapper.dataset.uid = uid();
+        stageEl.appendChild(wrapper);
+        elements.push({ el: wrapper, data });
+        attachHandlers(wrapper);
+        applyTransform(wrapper, data);
+        // S'assurer que la transformation est appliquée après chargement
+        img.onload = () => {
+          applyTransform(wrapper, data);
+        };
+      } else if (data.type === "text") {
+        wrapper = document.createElement("div");
+        wrapper.className = "editor-element text-element";
+        wrapper.textContent = data.text;
+        applyTextStyle(wrapper, data);
+        wrapper._data = data;
+        wrapper.dataset.uid = uid();
+        stageEl.appendChild(wrapper);
+        elements.push({ el: wrapper, data });
+        attachHandlers(wrapper);
+        applyTransform(wrapper, data);
+        // double-clic pour éditer le texte (comme dans addText)
+        wrapper.addEventListener("dblclick", (e) => {
+          e.stopPropagation();
+          const newText = prompt("Modifier le texte :", data.text);
+          if (newText !== null && newText.trim() !== "") {
+            data.text = newText;
+            wrapper.textContent = newText;
+          }
+        });
+      } else if (data.type === "arrow") {
+        wrapper = document.createElement("div");
+        wrapper.className = "editor-element arrow-element";
+        wrapper._data = data;
+        wrapper.dataset.uid = uid();
+        stageEl.appendChild(wrapper);
+        elements.push({ el: wrapper, data });
+        renderArrow(wrapper, data);
+        attachHandlers(wrapper);
+      }
+    });
+    // On ne sélectionne rien à la restauration
+  }
+
+  // ============================================================
   //  EXPORT — rendu canvas haute résolution
   // ============================================================
 
@@ -845,6 +934,9 @@ const Editor = (function () {
     photo.type = "png";
     photo.dataUrl = dataUrl;
     photo.annotated = true;
+
+    // Sauvegarder la structure des annotations pour pouvoir rééditer
+    photo.annotations = serializeElements();
 
     const prev = document.getElementById("preview_" + currentPhotoKey);
     if (prev) {
