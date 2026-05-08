@@ -47,25 +47,31 @@ const Editor = (function () {
     // Si la photo n'a jamais été annotée, originalDataUrl est absent → on prend dataUrl.
     const srcUrl = photo.originalDataUrl || photo.dataUrl;
 
+    // IMPORTANT : afficher l'overlay AVANT toute mesure de taille,
+    // sinon editorCanvasWrap.clientWidth = 0 (display:none) et fitStage() casse
+    // toutes les coordonnées (scale erroné), ce qui décale les annotations restaurées.
+    document.getElementById("editorOverlay").classList.add("shown");
+
     const onBgLoaded = () => {
       stageW = bgPhotoEl.naturalWidth;
       stageH = bgPhotoEl.naturalHeight;
-      fitStage();
-      // Restaurer les annotations si elles existent
-      if (photo.annotations && photo.annotations.length) {
-        restoreElements(photo.annotations);
-      }
+      // Attendre une frame pour que le layout du modal soit calculé (clientWidth/Height)
+      requestAnimationFrame(() => {
+        fitStage();
+        // Restaurer les annotations si elles existent
+        if (photo.annotations && photo.annotations.length) {
+          restoreElements(photo.annotations);
+        }
+      });
     };
 
     bgPhotoEl.onload = onBgLoaded;
-    // Si la src est inchangée, le onload n'est pas déclenché : on force
     if (bgPhotoEl.src === srcUrl && bgPhotoEl.complete && bgPhotoEl.naturalWidth) {
+      // src inchangée, image en cache : onload ne se déclenche pas → on appelle manuellement
       onBgLoaded();
     } else {
       bgPhotoEl.src = srcUrl;
     }
-
-    document.getElementById("editorOverlay").classList.add("shown");
   }
 
   // Adapter la taille d'affichage au conteneur
