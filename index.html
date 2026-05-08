@@ -544,6 +544,18 @@
   .editor-element.arrow-element svg { pointer-events: none; }
   .editor-element.arrow-element .handle { pointer-events: auto; }
 
+  /* Cercle / ellipse : le wrapper est transparent, seule l'ellipse SVG capte les clics */
+  .editor-element.circle-element {
+    pointer-events: none;
+  }
+  .editor-element.circle-element svg { pointer-events: none; overflow: visible; }
+  .editor-element.circle-element ellipse { pointer-events: auto; }
+  .editor-element.circle-element .handle { pointer-events: auto; }
+  .editor-element.circle-element.selected {
+    outline: 2px dashed #2e75b6;
+    outline-offset: 4px;
+  }
+
   /* Petit effet sur le panel de sélection pour le rendre visible */
   .selection-panel .small-help {
     font-size: 0.72rem;
@@ -908,7 +920,11 @@
         </div>
         <img class="photo-preview" id="preview_pose_antenne">
       </div>
-      <div class="photo-upload">
+    </div>
+
+    <h3 style="margin-top:18px;">📷 Photos de cheminement câble</h3>
+    <div id="cheminementPhotosContainer" class="photo-grid">
+      <div class="photo-upload" data-cheminement-block="cheminement_1">
         <div class="photo-upload-label">
           📷 Cheminement câble 1
           <input type="file" accept="image/*" data-photo-key="cheminement_1" style="margin-left:8px;">
@@ -917,7 +933,7 @@
         </div>
         <img class="photo-preview" id="preview_cheminement_1">
       </div>
-      <div class="photo-upload">
+      <div class="photo-upload" data-cheminement-block="cheminement_2">
         <div class="photo-upload-label">
           📷 Cheminement câble 2
           <input type="file" accept="image/*" data-photo-key="cheminement_2" style="margin-left:8px;">
@@ -926,7 +942,7 @@
         </div>
         <img class="photo-preview" id="preview_cheminement_2">
       </div>
-      <div class="photo-upload">
+      <div class="photo-upload" data-cheminement-block="cheminement_3">
         <div class="photo-upload-label">
           📷 Cheminement câble 3
           <input type="file" accept="image/*" data-photo-key="cheminement_3" style="margin-left:8px;">
@@ -935,6 +951,14 @@
         </div>
         <img class="photo-preview" id="preview_cheminement_3">
       </div>
+    </div>
+    <div style="margin: 8px 0 16px 0;">
+      <button type="button" id="btnAddCheminementPhoto" class="btn-secondary" style="background:#5cb85c; color:white; padding:8px 16px;">
+        ➕ Ajouter une photo de cheminement
+      </button>
+    </div>
+
+    <div class="photo-grid">
       <div class="photo-upload">
         <div class="photo-upload-label">
           📷 Point de pénétration façade
@@ -1087,6 +1111,42 @@
             </div>
             <div class="small-help">Tirez les poignées d'extrémité (cercles) pour allonger / orienter la flèche.</div>
           </div>
+
+          <!-- Pour les cercles -->
+          <div id="selPanelCircle" style="display:none;">
+            <div class="row" style="display:flex; gap:6px; align-items:center;">
+              <label style="flex:1; font-size:0.78rem; color:#555;">Couleur trait
+                <input type="color" id="selCircleColor" value="#FF0000" style="width:100%; padding:1px; height:28px; border:1px solid #ccc; border-radius:3px;">
+              </label>
+            </div>
+            <div class="swatch-row sel-circle-swatches" style="display:grid; grid-template-columns:repeat(6,1fr); gap:3px; margin-top:4px;">
+              <div class="swatch sel-circle-swatch" style="background:#FF0000; height:22px; border-radius:3px; cursor:pointer; border:1px solid rgba(0,0,0,0.2);" data-color="#FF0000" title="Rouge"></div>
+              <div class="swatch sel-circle-swatch" style="background:#FFFFFF; height:22px; border-radius:3px; cursor:pointer; border:1px solid rgba(0,0,0,0.2);" data-color="#FFFFFF" title="Blanc"></div>
+              <div class="swatch sel-circle-swatch" style="background:#FFFF00; height:22px; border-radius:3px; cursor:pointer; border:1px solid rgba(0,0,0,0.2);" data-color="#FFFF00" title="Jaune"></div>
+              <div class="swatch sel-circle-swatch" style="background:#00B050; height:22px; border-radius:3px; cursor:pointer; border:1px solid rgba(0,0,0,0.2);" data-color="#00B050" title="Vert"></div>
+              <div class="swatch sel-circle-swatch" style="background:#0070C0; height:22px; border-radius:3px; cursor:pointer; border:1px solid rgba(0,0,0,0.2);" data-color="#0070C0" title="Bleu"></div>
+              <div class="swatch sel-circle-swatch" style="background:#000000; height:22px; border-radius:3px; cursor:pointer; border:1px solid rgba(0,0,0,0.2);" data-color="#000000" title="Noir"></div>
+            </div>
+            <div class="row" style="display:flex; gap:6px; align-items:center; margin-top:6px;">
+              <label style="flex:1; font-size:0.78rem; color:#555;">Épaisseur
+                <input type="number" id="selCircleThickness" min="1" max="100" value="6" style="width:100%; padding:4px; font-size:0.82rem; border:1px solid #ccc; border-radius:3px;">
+              </label>
+            </div>
+            <div class="row" style="display:flex; gap:6px; align-items:center; margin-top:6px;">
+              <label style="flex:0 0 auto; display:flex; align-items:center; gap:4px; font-size:0.78rem; color:#555;">
+                <input type="checkbox" id="selCircleFilled"> Remplir
+              </label>
+              <label style="flex:1; font-size:0.78rem; color:#555;">Couleur
+                <input type="color" id="selCircleFillColor" value="#FF0000" style="width:100%; padding:1px; height:26px; border:1px solid #ccc; border-radius:3px;">
+              </label>
+            </div>
+            <div class="row" style="display:flex; gap:6px; align-items:center; margin-top:6px;">
+              <label style="flex:1; font-size:0.78rem; color:#555;">Opacité du fond
+                <input type="range" id="selCircleFillOpacity" min="0.05" max="1" step="0.05" value="0.3" style="width:100%;">
+              </label>
+            </div>
+            <div class="small-help">Tirez la poignée bas-droite pour redimensionner. Maintenez Maj pour faire une ellipse libre.</div>
+          </div>
         </div>
 
         <div class="tool-group">
@@ -1142,6 +1202,44 @@
               </label>
             </div>
             <button class="tool-btn" id="btnAddArrow" style="background:#2e75b6; color:white; border-color:#1f4e79; justify-content:center; margin-top:4px;">➕ Ajouter une flèche</button>
+          </div>
+        </div>
+
+        <div class="tool-group">
+          <h3>Cercles (percements, repères)</h3>
+          <div class="arrow-controls">
+            <div class="row">
+              <label>Couleur trait
+                <input type="color" id="circleColor" value="#FF0000">
+              </label>
+            </div>
+            <div class="swatch-row" style="display:grid; grid-template-columns:repeat(6,1fr); gap:3px;">
+              <div class="swatch circle-swatch" style="background:#FF0000; height:22px; border-radius:3px; cursor:pointer; border:1px solid rgba(0,0,0,0.2);" data-color="#FF0000" title="Rouge"></div>
+              <div class="swatch circle-swatch" style="background:#FFFFFF; height:22px; border-radius:3px; cursor:pointer; border:1px solid rgba(0,0,0,0.2);" data-color="#FFFFFF" title="Blanc"></div>
+              <div class="swatch circle-swatch" style="background:#FFFF00; height:22px; border-radius:3px; cursor:pointer; border:1px solid rgba(0,0,0,0.2);" data-color="#FFFF00" title="Jaune"></div>
+              <div class="swatch circle-swatch" style="background:#00B050; height:22px; border-radius:3px; cursor:pointer; border:1px solid rgba(0,0,0,0.2);" data-color="#00B050" title="Vert"></div>
+              <div class="swatch circle-swatch" style="background:#0070C0; height:22px; border-radius:3px; cursor:pointer; border:1px solid rgba(0,0,0,0.2);" data-color="#0070C0" title="Bleu"></div>
+              <div class="swatch circle-swatch" style="background:#000000; height:22px; border-radius:3px; cursor:pointer; border:1px solid rgba(0,0,0,0.2);" data-color="#000000" title="Noir"></div>
+            </div>
+            <div class="row">
+              <label>Épaisseur
+                <input type="number" id="circleThickness" min="1" max="100" value="6">
+              </label>
+            </div>
+            <div class="row" style="gap:4px;">
+              <label style="flex:0 0 auto; display:flex; align-items:center; gap:4px; font-size:0.78rem;">
+                <input type="checkbox" id="circleFilled"> Remplir
+              </label>
+              <label style="flex:1; font-size:0.78rem;">Couleur
+                <input type="color" id="circleFillColor" value="#FF0000" style="width:100%;">
+              </label>
+            </div>
+            <div class="row">
+              <label style="flex:1; font-size:0.78rem;">Opacité du fond
+                <input type="range" id="circleFillOpacity" min="0.05" max="1" step="0.05" value="0.3" style="width:100%;">
+              </label>
+            </div>
+            <button class="tool-btn" id="btnAddCircle" style="background:#2e75b6; color:white; border-color:#1f4e79; justify-content:center; margin-top:4px;">⭕ Ajouter un cercle</button>
           </div>
         </div>
 
