@@ -227,6 +227,84 @@ const Editor = (function () {
     select(wrapper);
   }
 
+  // ---- Ajouter un cercle (pour repérer les percements, points, etc.) ----
+  function addCircle() {
+    const color     = document.getElementById("circleColor").value;
+    const thickness = parseInt(document.getElementById("circleThickness").value, 10) || 6;
+    const filled    = document.getElementById("circleFilled").checked;
+    const fillColor = document.getElementById("circleFillColor").value;
+    const fillOpacity = parseFloat(document.getElementById("circleFillOpacity").value) || 0.3;
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "editor-element circle-element";
+
+    // Diamètre initial : 20% de la plus petite dimension de la photo
+    const initialSize = Math.min(stageW, stageH) * 0.2;
+
+    const data = {
+      type: "circle",
+      x: stageW * 0.5 - initialSize / 2, // coin haut-gauche du bounding box
+      y: stageH * 0.5 - initialSize / 2,
+      w: initialSize,
+      h: initialSize,
+      rotation: 0,
+      color,
+      thickness,
+      filled,
+      fillColor,
+      fillOpacity,
+    };
+
+    wrapper.dataset.uid = uid();
+    wrapper._data = data;
+    stageEl.appendChild(wrapper);
+    elements.push({ el: wrapper, data });
+
+    renderCircle(wrapper, data);
+    attachHandlers(wrapper);
+    select(wrapper);
+    applyTransform(wrapper, data);
+  }
+
+  // ---- Rendu d'un cercle/ellipse : SVG dans le wrapper ----
+  function renderCircle(wrapper, d) {
+    let svg = wrapper.querySelector("svg");
+    if (!svg) {
+      svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+      svg.style.width = "100%";
+      svg.style.height = "100%";
+      svg.style.position = "absolute";
+      svg.style.left = "0";
+      svg.style.top = "0";
+      svg.style.overflow = "visible";
+      svg.style.pointerEvents = "none";
+      wrapper.appendChild(svg);
+    }
+    // viewBox basé sur la taille du cercle en coords naturelles
+    svg.setAttribute("viewBox", `0 0 ${d.w} ${d.h}`);
+    svg.setAttribute("preserveAspectRatio", "none");
+    svg.innerHTML = "";
+
+    const ellipse = document.createElementNS("http://www.w3.org/2000/svg", "ellipse");
+    ellipse.setAttribute("cx", d.w / 2);
+    ellipse.setAttribute("cy", d.h / 2);
+    // Le rayon doit tenir compte de l'épaisseur pour ne pas dépasser
+    ellipse.setAttribute("rx", Math.max(1, d.w / 2 - d.thickness / 2));
+    ellipse.setAttribute("ry", Math.max(1, d.h / 2 - d.thickness / 2));
+    ellipse.setAttribute("stroke", d.color);
+    ellipse.setAttribute("stroke-width", d.thickness);
+    if (d.filled) {
+      ellipse.setAttribute("fill", d.fillColor);
+      ellipse.setAttribute("fill-opacity", d.fillOpacity);
+    } else {
+      ellipse.setAttribute("fill", "none");
+    }
+    ellipse.style.pointerEvents = "auto";
+    ellipse.style.cursor = "grab";
+    svg.appendChild(ellipse);
+  }
+
   function applyTextStyle(el, s) {
     el.style.fontFamily = s.font;
     el.style.fontSize = (s.size * scale) + "px";
@@ -260,7 +338,7 @@ const Editor = (function () {
     }
     el.style.left = (data.x * scale) + "px";
     el.style.top = (data.y * scale) + "px";
-    if (data.type === "image") {
+    if (data.type === "image" || data.type === "circle") {
       el.style.width = (data.w * scale) + "px";
       el.style.height = (data.h * scale) + "px";
     } else {
@@ -276,6 +354,10 @@ const Editor = (function () {
       }
     }
     el.style.transform = transform;
+    // Pour les cercles, redessiner le SVG après changement de taille
+    if (data.type === "circle") {
+      renderCircle(el, data);
+    }
   }
 
   // ---- Rendu d'une flèche : SVG positionné sur la stage ----
@@ -530,9 +612,11 @@ const Editor = (function () {
     // Sections distinctes selon le type
     const imgPanel = document.getElementById("selPanelImage");
     const arrPanel = document.getElementById("selPanelArrow");
+    const cirPanel = document.getElementById("selPanelCircle");
     panel.style.display = "block";
     imgPanel.style.display = (data.type === "image") ? "block" : "none";
     arrPanel.style.display = (data.type === "arrow") ? "block" : "none";
+    if (cirPanel) cirPanel.style.display = (data.type === "circle") ? "block" : "none";
 
     if (data.type === "image") {
       document.getElementById("flipHBtn").classList.toggle("active", !!data.flipH);
@@ -541,6 +625,17 @@ const Editor = (function () {
       document.getElementById("selArrowColor").value = data.color;
       document.getElementById("selArrowThickness").value = data.thickness;
       document.getElementById("selArrowHeadSize").value = data.headSize;
+    } else if (data.type === "circle") {
+      const sc = document.getElementById("selCircleColor");
+      const st = document.getElementById("selCircleThickness");
+      const sf = document.getElementById("selCircleFilled");
+      const sfc = document.getElementById("selCircleFillColor");
+      const sfo = document.getElementById("selCircleFillOpacity");
+      if (sc) sc.value = data.color;
+      if (st) st.value = data.thickness;
+      if (sf) sf.checked = !!data.filled;
+      if (sfc) sfc.value = data.fillColor || "#FF0000";
+      if (sfo) sfo.value = data.fillOpacity != null ? data.fillOpacity : 0.3;
     }
   }
 
@@ -633,6 +728,34 @@ const Editor = (function () {
         const newW = Math.max(20, origW + dx);
         data.w = newW;
         data.h = newW * ratio;
+        applyTransform(el, data);
+      }
+      function onUp() {
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+      }
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+    } else if (data.type === "circle") {
+      // Pour un cercle : les deux axes sont liés par défaut (cercle parfait).
+      // Si la touche Shift est maintenue au démarrage, on libère pour faire une ellipse.
+      const origW = data.w;
+      const origH = data.h;
+      const lockRatio = !e.shiftKey;
+      const ratio = origH / origW;
+      function onMove(ev) {
+        const dx = (ev.clientX - startX) / scale;
+        const dy = (ev.clientY - startY) / scale;
+        if (lockRatio) {
+          // On prend la plus grande des deux variations (en valeur absolue)
+          const delta = Math.abs(dx) >= Math.abs(dy) ? dx : dy;
+          const newW = Math.max(10, origW + delta);
+          data.w = newW;
+          data.h = newW * ratio;
+        } else {
+          data.w = Math.max(10, origW + dx);
+          data.h = Math.max(10, origH + dy);
+        }
         applyTransform(el, data);
       }
       function onUp() {
@@ -790,6 +913,16 @@ const Editor = (function () {
         elements.push({ el: wrapper, data });
         renderArrow(wrapper, data);
         attachHandlers(wrapper);
+      } else if (data.type === "circle") {
+        wrapper = document.createElement("div");
+        wrapper.className = "editor-element circle-element";
+        wrapper._data = data;
+        wrapper.dataset.uid = uid();
+        stageEl.appendChild(wrapper);
+        elements.push({ el: wrapper, data });
+        renderCircle(wrapper, data);
+        attachHandlers(wrapper);
+        applyTransform(wrapper, data);
       }
     });
     // On ne sélectionne rien à la restauration
@@ -824,6 +957,8 @@ const Editor = (function () {
         drawTextEl(ctx, d);
       } else if (d.type === "arrow") {
         drawArrowEl(ctx, d);
+      } else if (d.type === "circle") {
+        drawCircleEl(ctx, d);
       }
     }
 
@@ -923,6 +1058,33 @@ const Editor = (function () {
     ctx.restore();
   }
 
+  function drawCircleEl(ctx, d) {
+    ctx.save();
+    const cx = d.x + d.w / 2;
+    const cy = d.y + d.h / 2;
+    const rx = Math.max(0.5, d.w / 2 - d.thickness / 2);
+    const ry = Math.max(0.5, d.h / 2 - d.thickness / 2);
+
+    ctx.translate(cx, cy);
+    ctx.rotate((d.rotation || 0) * Math.PI / 180);
+
+    ctx.beginPath();
+    ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+
+    if (d.filled) {
+      const prevAlpha = ctx.globalAlpha;
+      ctx.globalAlpha = (d.fillOpacity != null ? d.fillOpacity : 0.3);
+      ctx.fillStyle = d.fillColor || d.color;
+      ctx.fill();
+      ctx.globalAlpha = prevAlpha;
+    }
+
+    ctx.strokeStyle = d.color;
+    ctx.lineWidth = d.thickness;
+    ctx.stroke();
+    ctx.restore();
+  }
+
   // ---- Sauvegarde (appelée depuis le bouton "Enregistrer") ----
   async function save() {
     if (!currentPhotoKey) return;
@@ -984,6 +1146,59 @@ const Editor = (function () {
     // Bouton "Ajouter flèche"
     const btnArrow = document.getElementById("btnAddArrow");
     if (btnArrow) btnArrow.addEventListener("click", addArrow);
+
+    // Bouton "Ajouter cercle"
+    const btnCircle = document.getElementById("btnAddCircle");
+    if (btnCircle) btnCircle.addEventListener("click", addCircle);
+
+    // Swatches couleur (cercle par défaut)
+    document.querySelectorAll(".circle-swatch").forEach(s => {
+      s.addEventListener("click", () => {
+        document.getElementById("circleColor").value = s.dataset.color;
+      });
+    });
+    // Swatches couleur (cercle sélectionné)
+    document.querySelectorAll(".sel-circle-swatch").forEach(s => {
+      s.addEventListener("click", () => {
+        if (!selectedEl || selectedEl._data.type !== "circle") return;
+        selectedEl._data.color = s.dataset.color;
+        const sc = document.getElementById("selCircleColor");
+        if (sc) sc.value = s.dataset.color;
+        renderCircle(selectedEl, selectedEl._data);
+      });
+    });
+
+    // Édition live des cercles sélectionnés
+    const selCirColor   = document.getElementById("selCircleColor");
+    const selCirThick   = document.getElementById("selCircleThickness");
+    const selCirFilled  = document.getElementById("selCircleFilled");
+    const selCirFill    = document.getElementById("selCircleFillColor");
+    const selCirOpacity = document.getElementById("selCircleFillOpacity");
+    if (selCirColor) selCirColor.addEventListener("input", () => {
+      if (!selectedEl || selectedEl._data.type !== "circle") return;
+      selectedEl._data.color = selCirColor.value;
+      renderCircle(selectedEl, selectedEl._data);
+    });
+    if (selCirThick) selCirThick.addEventListener("input", () => {
+      if (!selectedEl || selectedEl._data.type !== "circle") return;
+      selectedEl._data.thickness = parseInt(selCirThick.value, 10) || 6;
+      renderCircle(selectedEl, selectedEl._data);
+    });
+    if (selCirFilled) selCirFilled.addEventListener("change", () => {
+      if (!selectedEl || selectedEl._data.type !== "circle") return;
+      selectedEl._data.filled = selCirFilled.checked;
+      renderCircle(selectedEl, selectedEl._data);
+    });
+    if (selCirFill) selCirFill.addEventListener("input", () => {
+      if (!selectedEl || selectedEl._data.type !== "circle") return;
+      selectedEl._data.fillColor = selCirFill.value;
+      renderCircle(selectedEl, selectedEl._data);
+    });
+    if (selCirOpacity) selCirOpacity.addEventListener("input", () => {
+      if (!selectedEl || selectedEl._data.type !== "circle") return;
+      selectedEl._data.fillOpacity = parseFloat(selCirOpacity.value) || 0.3;
+      renderCircle(selectedEl, selectedEl._data);
+    });
 
     // Aperçu live texte
     ["textInput","textFont","textSize","textColor","textStroke","textBold","textShadow"].forEach(id => {
@@ -1063,6 +1278,7 @@ const Editor = (function () {
           if (it.data.type === "arrow" && it.el === selectedEl && it.el._placeArrowHandles) {
             it.el._placeArrowHandles();
           }
+          // Les cercles sont déjà redessinés par applyTransform, rien de plus à faire
         });
       }
     });
