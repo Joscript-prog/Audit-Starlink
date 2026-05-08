@@ -1107,3 +1107,241 @@ function buildFilename() {
   parts.push(date);
   return parts.join("_") + ".docx";
 }
+
+// ============================================================
+//  EXPORT / IMPORT JSON COMPLET (formulaire + photos + annotations)
+// ============================================================
+
+function buildJsonFilename() {
+  const ref = (val("ref_commande") || "").replace(/[^a-zA-Z0-9_-]/g, "_");
+  const raison = (val("raison_sociale") || "").replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 30);
+  const date = val("date_audit") || new Date().toISOString().slice(0, 10);
+  let parts = ["AUDIT_STARLINK_BACKUP"];
+  if (ref) parts.push(ref);
+  if (raison) parts.push(raison);
+  parts.push(date);
+  return parts.join("_") + ".json";
+}
+
+// Exporter tout en JSON (formulaire + photos + annotations)
+async function exportToJSON() {
+  try {
+    // Récupérer toutes les valeurs du formulaire
+    const formData = {
+      // Champs texte
+      ref_commande: val("ref_commande"),
+      auditeur: val("auditeur"),
+      date_audit: val("date_audit"),
+      raison_sociale: val("raison_sociale"),
+      adresse: val("adresse"),
+      code_postal: val("code_postal"),
+      ville: val("ville"),
+      horaire: val("horaire"),
+      procedure_acces: val("procedure_acces"),
+      tel_site: val("tel_site"),
+      contact_nom: val("contact_nom"),
+      contact_fonction: val("contact_fonction"),
+      contact_tel: val("contact_tel"),
+      contact_mail: val("contact_mail"),
+      empl_description: val("empl_description"),
+      empl_hauteur: val("empl_hauteur"),
+      obstr_commentaire: val("obstr_commentaire"),
+      cable_longueur: val("cable_longueur"),
+      hauteur_max: val("hauteur_max"),
+      heure_debut: val("heure_debut"),
+      heure_fin: val("heure_fin"),
+      duree_totale: val("duree_totale"),
+      nb_techniciens: val("nb_techniciens"),
+      epi_remarques: val("epi_remarques"),
+      observations: val("observations"),
+      signataire_nom: val("signataire_nom"),
+      signataire_date: val("signataire_date"),
+      // Groupes de checkboxes
+      type_empl: checkedValues("type_empl"),
+      access: checkedValues("access"),
+      degagement: checkedValues("degagement"),
+      obstruction: checkedValues("obstruction"),
+      support: checkedValues("support"),
+      cheminement: checkedValues("cheminement"),
+      penetration: checkedValues("penetration"),
+      etancheite: checkedValues("etancheite"),
+      // Radios
+      nacelle_prevoir: radioValue("nacelle_prevoir"),
+      cablage_supp: radioValue("cablage_supp"),
+      // EPI (radios dynamiques)
+      epi: EPI_LIST.map(epi => ({ key: epi.key, value: radioValue("epi_" + epi.key) })),
+    };
+
+    // Photos : on stocke les dataUrl (déjà en base64) + métadonnées + annotations
+    const photos = {};
+    for (const [key, photo] of Object.entries(photoStore)) {
+      photos[key] = {
+        dataUrl: photo.dataUrl,
+        originalDataUrl: photo.originalDataUrl || null,
+        annotated: photo.annotated || false,
+        annotations: photo.annotations || null,
+        naturalWidth: photo.naturalWidth || null,
+        naturalHeight: photo.naturalHeight || null,
+        type: photo.type || "png",
+        name: photo.name || null,
+      };
+    }
+
+    const fullExport = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      formData,
+      photos,
+    };
+
+    const jsonStr = JSON.stringify(fullExport, null, 2);
+    const blob = new Blob([jsonStr], { type: "application/json" });
+    const filename = buildJsonFilename();
+    saveAs(blob, filename);
+    showStatus("✅ Sauvegarde JSON exportée : " + filename, "success");
+  } catch (err) {
+    console.error(err);
+    showStatus("❌ Erreur lors de l'export JSON : " + err.message, "error");
+  }
+}
+
+// Importer depuis JSON
+async function importFromJSON(file) {
+  if (!file) return;
+  if (!confirm("Importer ce fichier va remplacer toutes les données actuelles du formulaire. Continuer ?")) {
+    // Réinitialiser l'input pour permettre un nouvel import du même fichier ensuite
+    const input = document.getElementById("importJsonInput");
+    if (input) input.value = "";
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      const formData = data.formData || {};
+      const photos = data.photos || {};
+
+      // 1) Réinitialiser tous les champs sans confirmation
+      document.querySelectorAll("input, textarea, select").forEach(el => {
+        if (el.type === "checkbox" || el.type === "radio") el.checked = false;
+        else if (el.type !== "file") el.value = "";
+      });
+      Object.keys(photoStore).forEach(k => delete photoStore[k]);
+      document.querySelectorAll(".photo-preview").forEach(p => {
+        p.src = "";
+        p.classList.remove("shown");
+      });
+      document.querySelectorAll(".annotate-btn").forEach(b => b.disabled = true);
+
+      // 2) Restaurer les champs texte / date / etc.
+      const TEXT_FIELDS = [
+        "ref_commande","auditeur","date_audit","raison_sociale","adresse",
+        "code_postal","ville","horaire","procedure_acces","tel_site",
+        "contact_nom","contact_fonction","contact_tel","contact_mail",
+        "empl_description","empl_hauteur","obstr_commentaire","cable_longueur",
+        "hauteur_max","heure_debut","heure_fin","duree_totale","nb_techniciens",
+        "epi_remarques","observations","signataire_nom","signataire_date"
+      ];
+      TEXT_FIELDS.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && formData[id] !== undefined && formData[id] !== null) {
+          el.value = formData[id];
+        }
+      });
+
+      // 3) Restaurer les groupes de checkboxes
+      restoreCheckGroup("type_empl",   formData.type_empl);
+      restoreCheckGroup("access",      formData.access);
+      restoreCheckGroup("degagement",  formData.degagement);
+      restoreCheckGroup("obstruction", formData.obstruction);
+      restoreCheckGroup("support",     formData.support);
+      restoreCheckGroup("cheminement", formData.cheminement);
+      restoreCheckGroup("penetration", formData.penetration);
+      restoreCheckGroup("etancheite",  formData.etancheite);
+
+      // 4) Restaurer les radios
+      if (formData.nacelle_prevoir) setRadio("nacelle_prevoir", formData.nacelle_prevoir);
+      if (formData.cablage_supp)    setRadio("cablage_supp",    formData.cablage_supp);
+
+      // 5) Restaurer les EPI
+      if (Array.isArray(formData.epi)) {
+        formData.epi.forEach(({ key, value }) => {
+          if (value) setRadio("epi_" + key, value);
+        });
+      }
+
+      // 6) Restaurer les photos + annotations
+      for (const [key, photoData] of Object.entries(photos)) {
+        if (!photoData || !photoData.dataUrl) continue;
+
+        // Convertir dataUrl (base64) en Uint8Array
+        const u8 = await dataUrlToUint8ArrayApp(photoData.dataUrl);
+
+        photoStore[key] = {
+          data: u8,
+          type: photoData.type || "png",
+          name: photoData.name || null,
+          dataUrl: photoData.dataUrl,
+          originalDataUrl: photoData.originalDataUrl || null,
+          annotated: !!photoData.annotated,
+          annotations: photoData.annotations || null,
+          naturalWidth: photoData.naturalWidth || null,
+          naturalHeight: photoData.naturalHeight || null,
+        };
+
+        // Mettre à jour l'aperçu
+        const preview = document.getElementById("preview_" + key);
+        if (preview) {
+          preview.src = photoData.dataUrl;
+          preview.classList.add("shown");
+        }
+        const annotateBtn = document.querySelector(`[data-annotate="${key}"]`);
+        if (annotateBtn) annotateBtn.disabled = false;
+      }
+
+      // Réinitialiser l'input pour permettre un nouvel import éventuel
+      const input = document.getElementById("importJsonInput");
+      if (input) input.value = "";
+
+      showStatus("✅ Sauvegarde JSON importée avec succès", "success");
+    } catch (err) {
+      console.error(err);
+      showStatus("❌ Erreur lors de l'import JSON : " + err.message, "error");
+    }
+  };
+  reader.onerror = () => {
+    showStatus("❌ Impossible de lire le fichier JSON.", "error");
+  };
+  reader.readAsText(file);
+}
+
+// Helper : restaurer un groupe de checkboxes
+function restoreCheckGroup(name, values) {
+  const checkboxes = document.querySelectorAll(`input[name="${name}"]`);
+  checkboxes.forEach(cb => {
+    cb.checked = Array.isArray(values) && values.includes(cb.value);
+  });
+}
+
+// Helper : sélectionner un radio
+function setRadio(name, value) {
+  const radio = document.querySelector(`input[name="${name}"][value="${value}"]`);
+  if (radio) radio.checked = true;
+}
+
+// Helper : dataUrl base64 → Uint8Array (version locale pour app.js)
+async function dataUrlToUint8ArrayApp(dataUrl) {
+  try {
+    const res = await fetch(dataUrl);
+    const buf = await res.arrayBuffer();
+    return new Uint8Array(buf);
+  } catch (err) {
+    // Fallback : décodage manuel (au cas où fetch refuserait l'URL)
+    const base64 = dataUrl.split(",")[1] || "";
+    const binary = atob(base64);
+    const u8 = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) u8[i] = binary.charCodeAt(i);
+    return u8;
+  }
+}
