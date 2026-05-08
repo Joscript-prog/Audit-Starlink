@@ -338,7 +338,8 @@ const Editor = (function () {
     hit.setAttribute("x2", d.x2);
     hit.setAttribute("y2", d.y2);
     hit.setAttribute("stroke", "transparent");
-    hit.setAttribute("stroke-width", Math.max(20, d.thickness * 3));
+    // /// AMÉLIORATION TACTILE : zone de capture plus large
+    hit.setAttribute("stroke-width", Math.max(30, d.thickness * 4));
     hit.setAttribute("stroke-linecap", "round");
     hit.style.pointerEvents = "stroke";
     hit.style.cursor = "grab";
