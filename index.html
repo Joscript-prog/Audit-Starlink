@@ -1022,6 +1022,9 @@
 
 <div class="actions">
   <button class="btn-secondary" onclick="resetForm()">🔄 Réinitialiser</button>
+  <button class="btn-secondary" onclick="exportToJSON()">💾 Exporter JSON</button>
+  <input type="file" id="importJsonInput" accept=".json,application/json" style="display:none" onchange="importFromJSON(this.files[0])">
+  <button class="btn-secondary" onclick="document.getElementById('importJsonInput').click()">📂 Importer JSON</button>
   <button class="btn-primary" onclick="generateDocument()">📄 Générer le rapport Word</button>
 </div>
 
