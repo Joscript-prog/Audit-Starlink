@@ -60,39 +60,48 @@ document.addEventListener("DOMContentLoaded", () => {
     epiList.appendChild(row);
   });
 
-  // Photo upload listeners
-  document.querySelectorAll('input[type="file"][data-photo-key]').forEach(input => {
-    input.addEventListener("change", handlePhotoUpload);
+  // Photo upload listeners (délégation pour gérer les blocs ajoutés dynamiquement)
+  document.body.addEventListener("change", (e) => {
+    if (e.target.matches('input[type="file"][data-photo-key]')) {
+      handlePhotoUpload(e);
+    }
   });
 
-  // Boutons "Annoter"
-  document.querySelectorAll("[data-annotate]").forEach(btn => {
-    btn.addEventListener("click", () => {
+  // Boutons "Annoter" (délégation)
+  document.body.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-annotate]");
+    if (btn && !btn.disabled) {
       const key = btn.dataset.annotate;
       if (!photoStore[key]) {
         alert("Importez d'abord une photo avant de l'annoter.");
         return;
       }
       Editor.open(key, PHOTO_LABELS[key] || key);
-    });
+    }
   });
 
-  // Boutons "Effacer photo"
-  document.querySelectorAll("[data-clear]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const key = btn.dataset.clear;
-      delete photoStore[key];
-      const prev = document.getElementById("preview_" + key);
-      if (prev) {
-        prev.src = "";
-        prev.classList.remove("shown");
-      }
-      const fileInput = document.querySelector(`input[data-photo-key="${key}"]`);
-      if (fileInput) fileInput.value = "";
-      const annBtn = document.querySelector(`[data-annotate="${key}"]`);
-      if (annBtn) annBtn.disabled = true;
-    });
+  // Boutons "Effacer photo" (délégation) — gère aussi la suppression de bloc cheminement vide
+  document.body.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-clear]");
+    if (!btn) return;
+    const key = btn.dataset.clear;
+    delete photoStore[key];
+    const prev = document.getElementById("preview_" + key);
+    if (prev) {
+      prev.src = "";
+      prev.classList.remove("shown");
+    }
+    const fileInput = document.querySelector(`input[data-photo-key="${key}"]`);
+    if (fileInput) fileInput.value = "";
+    const annBtn = document.querySelector(`[data-annotate="${key}"]`);
+    if (annBtn) annBtn.disabled = true;
   });
+
+  // Bouton "+ Ajouter une photo de cheminement"
+  const btnAddChem = document.getElementById("btnAddCheminementPhoto");
+  if (btnAddChem) {
+    btnAddChem.addEventListener("click", () => addCheminementBlock());
+  }
 
   // Date par défaut
   const today = new Date().toISOString().slice(0, 10);
@@ -169,6 +178,85 @@ async function handlePhotoUpload(e) {
   if (annBtn) annBtn.disabled = false;
 }
 
+// ============================================================
+//  Cheminement câble — gestion dynamique des photos
+// ============================================================
+
+// Renvoie toutes les clés cheminement_N triées par numéro croissant
+function getCheminementKeys() {
+  const keys = new Set();
+  // Depuis le DOM (blocs présents)
+  document.querySelectorAll('[data-cheminement-block]').forEach(el => {
+    keys.add(el.dataset.cheminementBlock);
+  });
+  // Depuis le photoStore (au cas où une photo existe sans bloc — sécurité)
+  Object.keys(photoStore).forEach(k => {
+    if (/^cheminement_\d+$/.test(k)) keys.add(k);
+  });
+  return [...keys].sort((a, b) => {
+    const na = parseInt(a.split("_")[1], 10);
+    const nb = parseInt(b.split("_")[1], 10);
+    return na - nb;
+  });
+}
+
+// Calcule le prochain numéro disponible (1, 2, 3...)
+function nextCheminementNumber() {
+  const keys = getCheminementKeys();
+  let n = 1;
+  while (keys.includes("cheminement_" + n)) n++;
+  return n;
+}
+
+// Crée et insère un nouveau bloc cheminement dans la grille.
+// Si `key` est fourni (ex: "cheminement_5" lors d'un import), utilise cette clé exacte.
+// Retourne la clé utilisée.
+function addCheminementBlock(key) {
+  const container = document.getElementById("cheminementPhotosContainer");
+  if (!container) return null;
+
+  const num = key ? parseInt(key.split("_")[1], 10) : nextCheminementNumber();
+  const finalKey = key || ("cheminement_" + num);
+
+  // Si le bloc existe déjà (re-import), ne pas dupliquer
+  if (document.querySelector(`[data-cheminement-block="${finalKey}"]`)) {
+    return finalKey;
+  }
+
+  const block = document.createElement("div");
+  block.className = "photo-upload";
+  block.dataset.cheminementBlock = finalKey;
+  block.innerHTML = `
+    <div class="photo-upload-label">
+      📷 Cheminement câble ${num}
+      <input type="file" accept="image/*" data-photo-key="${finalKey}" style="margin-left:8px;">
+      <button class="annotate-btn" data-annotate="${finalKey}" disabled>✏ Annoter</button>
+      <button class="clear-photo" data-clear="${finalKey}">✕</button>
+      <button type="button" class="clear-photo remove-cheminement-block" title="Retirer ce bloc" style="background:#777;">🗑 Retirer</button>
+    </div>
+    <img class="photo-preview" id="preview_${finalKey}">
+  `;
+  container.appendChild(block);
+
+  // Listener pour retirer entièrement le bloc (sauf si c'est l'un des 3 premiers)
+  const removeBtn = block.querySelector(".remove-cheminement-block");
+  if (removeBtn) {
+    removeBtn.addEventListener("click", () => {
+      // Supprimer la photo du store si présente
+      delete photoStore[finalKey];
+      // Retirer le bloc du DOM
+      block.remove();
+      // Mettre à jour le mapping label
+      delete PHOTO_LABELS[finalKey];
+    });
+  }
+
+  // Mettre à jour le mapping de label pour l'éditeur
+  PHOTO_LABELS[finalKey] = "Cheminement câble " + num;
+
+  return finalKey;
+}
+
 function val(id) {
   const el = document.getElementById(id);
   return el ? (el.value || "").trim() : "";
@@ -193,6 +281,15 @@ function resetForm() {
     p.classList.remove("shown");
   });
   document.querySelectorAll(".annotate-btn").forEach(b => b.disabled = true);
+  // Retirer les blocs cheminement_N pour N > 3 (créés dynamiquement)
+  document.querySelectorAll('[data-cheminement-block]').forEach(block => {
+    const key = block.dataset.cheminementBlock;
+    const n = parseInt((key || "").split("_")[1], 10);
+    if (n > 3) {
+      delete PHOTO_LABELS[key];
+      block.remove();
+    }
+  });
   showStatus("Formulaire réinitialisé.", "success");
 }
 
@@ -1038,8 +1135,40 @@ async function generateDocument() {
     children.push(emptyP());
 
     children.push(subHeading("3.2 - Photos de pose et cheminement"));
-    children.push(...makePhotoRow("Antenne posée sur support", "pose_antenne", "Cheminement câble 1", "cheminement_1"));
-    children.push(...makePhotoRow("Cheminement câble 2", "cheminement_2", "Cheminement câble 3", "cheminement_3"));
+
+    // Récupérer toutes les clés cheminement_N qui ont une photo, triées par numéro
+    const cheminementKeysWithPhotos = Object.keys(photoStore)
+      .filter(k => /^cheminement_\d+$/.test(k))
+      .sort((a, b) => {
+        const na = parseInt(a.split("_")[1], 10);
+        const nb = parseInt(b.split("_")[1], 10);
+        return na - nb;
+      });
+
+    // Construire la liste des paires (label, key) à afficher : antenne + toutes les photos cheminement
+    const photoPairs = [];
+    if (photoStore["pose_antenne"]) {
+      photoPairs.push(["Antenne posée sur support", "pose_antenne"]);
+    }
+    cheminementKeysWithPhotos.forEach(k => {
+      const num = parseInt(k.split("_")[1], 10);
+      photoPairs.push(["Cheminement câble " + num, k]);
+    });
+
+    // Afficher 2 par ligne via makePhotoRow
+    for (let i = 0; i < photoPairs.length; i += 2) {
+      const [label1, key1] = photoPairs[i];
+      const second = photoPairs[i + 1];
+      if (second) {
+        const [label2, key2] = second;
+        children.push(...makePhotoRow(label1, key1, label2, key2));
+      } else {
+        // Photo seule à la fin (nombre impair)
+        children.push(...makePhotoRow(label1, key1, "", "__none__"));
+      }
+    }
+
+    // Pénétration façade + routeur sur une ligne propre
     children.push(...makePhotoRow("Point de pénétration façade", "penetration_facade", "Emplacement du routeur Starlink", "routeur"));
 
     // SECTION 4
@@ -1233,6 +1362,26 @@ async function importFromJSON(file) {
         p.classList.remove("shown");
       });
       document.querySelectorAll(".annotate-btn").forEach(b => b.disabled = true);
+
+      // 1b) Retirer les blocs cheminement_N créés dynamiquement (n > 3)
+      document.querySelectorAll('[data-cheminement-block]').forEach(block => {
+        const key = block.dataset.cheminementBlock;
+        const n = parseInt((key || "").split("_")[1], 10);
+        if (n > 3) {
+          delete PHOTO_LABELS[key];
+          block.remove();
+        }
+      });
+
+      // 1c) Re-créer les blocs cheminement_N nécessaires (présents dans le JSON et n > 3)
+      Object.keys(photos).forEach(k => {
+        if (/^cheminement_\d+$/.test(k)) {
+          const n = parseInt(k.split("_")[1], 10);
+          if (n > 3 && !document.querySelector(`[data-cheminement-block="${k}"]`)) {
+            addCheminementBlock(k);
+          }
+        }
+      });
 
       // 2) Restaurer les champs texte / date / etc.
       const TEXT_FIELDS = [
